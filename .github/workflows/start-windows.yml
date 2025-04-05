@@ -28,11 +28,43 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Update
+        id: update
         run: |
           git fetch --unshallow
           git config --unset-all http.https://github.com/.extraheader
           git push https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/rbernon-winetests/${{ matrix.version }} main --force
 
+          case ${{ matrix.version }} in
+            w7u32)        echo "install=rbernon/private:win7u-i386-en" >> "$GITHUB_OUTPUT";;
+            w7e64)        echo "install=7e" >> "$GITHUB_OUTPUT";;
+            w81p32)       echo "install=rbernon/private:win81-i386-en" >> "$GITHUB_OUTPUT";;
+            w81e64)       echo "install=8e" >> "$GITHUB_OUTPUT";;
+            w101809p32)   echo "install=rbernon/private:win10-1809-i386-en" >> "$GITHUB_OUTPUT";;
+            w101809p64)   echo "install=rbernon/private:win10-1809-amd64-en" >> "$GITHUB_OUTPUT";;
+            w10pro64)     echo "install=10" >> "$GITHUB_OUTPUT";;
+            w10ltsc64)    echo "install=10l" >> "$GITHUB_OUTPUT";;
+            w11pro64)     echo "install=11" >> "$GITHUB_OUTPUT";;
+            w11ltsc64)    echo "install=11l" >> "$GITHUB_OUTPUT";;
+          esac
+
+          case ${{ matrix.version }} in
+            *32) echo "archs=[\\\"win32\\\"]" >> "$GITHUB_OUTPUT";;
+            *64) echo "archs=[\\\"wow64\\\",\\\"win64\\\"]" >> "$GITHUB_OUTPUT";;
+          esac
+
       - name: Trigger
-        run: |
-          $PWD/run-windows ${{ matrix.version }} ${{ inputs.run_id }} ${{ inputs.event }}
+        uses: rbernon/workflow-execute@main
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          repository: rbernon-winetests/${{ matrix.version }}
+          workflow: windows.yml
+          branch: main
+          inputs: |
+            {
+              "run_id": "${{ inputs.run_id }}",
+              "event": "${{ inputs.event }}",
+              "version": "${{ matrix.version }}",
+              "install": "${{ steps.update.outputs.install }}",
+              "archs": "${{ steps.update.outputs.archs }}"
+            }
+          wait: true
